@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mahalla
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      APP_HOST: localhost
+      PORT: 4000
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/mahalla?schema=public
+      JWT_ACCESS_SECRET: ci_access_secret_please_change
+      JWT_REFRESH_SECRET: ci_refresh_secret_please_change
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      OTP_TTL_SECONDS: 300
+      OTP_MAX_ATTEMPTS: 5
+      OTP_REQUEST_WINDOW_SECONDS: 600
+      OTP_REQUEST_MAX: 5
+      OTP_VERIFY_WINDOW_SECONDS: 300
+      OTP_VERIFY_MAX: 10
+      TWO_FA_TTL_SECONDS: 300
+      TWO_FA_MAX_ATTEMPTS: 5
+      ENFORCE_TWO_FACTOR_FOR_PRIVILEGED: true
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ''
+      TIMEZONE: Asia/Tashkent
+      APP_NAME: Mahalla Yettiligi API
+      CORS_ORIGINS: http://localhost:3000,http://localhost:4000
+      BODY_LIMIT: 10mb
+      ENABLE_SECURITY_HEADERS: true
+      SMS_PROVIDER: mock
+      SMS_FROM: Mahalla
+      ONEID_PROVIDER: mock-oneid
+      GEO_PROVIDER: mock-geo-api
+      ESIGN_PROVIDER: mock-e-sign
+      ERP_PROVIDER: mock-erp
+      POSTMAN_ADMIN_PHONE: +998900000001
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Run database migrations
+        run: npm run prisma:migrate:deploy
+
+      - name: Seed database
+        run: npm run prisma:seed
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit test + coverage
+        run: npm run test:cov -- --runInBand
+
+      - name: E2E tests
+        run: npm run test:e2e -- --runInBand
+
+      - name: Generate Postman assets
+        run: npm run postman:generate
+
+      - name: Build app
+        run: npm run build
+
+      - name: Start app
+        run: |
+          npm run start:prod &
+          echo $! > /tmp/mahalla-api.pid
+
+      - name: Wait for health endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -sS "http://localhost:4000/api/v1/health" > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not start in time" >&2
+          exit 1
+
+      - name: Newman regression suite
+        run: npm run test:newman
+
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f /tmp/mahalla-api.pid ]; then
+            kill "$(cat /tmp/mahalla-api.pid)" || true
+          fi

@@ -1,0 +1,395 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  RESIDENT
+  STAFF
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum StaffPosition {
+  CHAIRPERSON
+  YOUTH_LEADER
+  WOMEN_ACTIVIST
+  PREVENTION_INSPECTOR
+  TAX_REPRESENTATIVE
+  EMPLOYMENT_REPRESENTATIVE
+  SOCIAL_PROTECTION_REPRESENTATIVE
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ComplaintStatus {
+  NEW
+  IN_PROGRESS
+  ANSWERED
+  REJECTED
+}
+
+enum MonthlyReportStatus {
+  DRAFT
+  SUBMITTED
+}
+
+enum EventStatus {
+  PLANNED
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum RatingVerdict {
+  TRUTH
+  SUSPICIOUS
+  FALSE
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Region {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  districts District[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model District {
+  id        String    @id @default(uuid())
+  name      String
+  regionId  String
+  region    Region    @relation(fields: [regionId], references: [id])
+  mahallas  Mahalla[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([regionId, name])
+}
+
+model Mahalla {
+  id             String          @id @default(uuid())
+  name           String
+  districtId     String
+  district       District        @relation(fields: [districtId], references: [id])
+  boundaryGeoJson Json?
+  users          User[]
+  posts          Post[]
+  events         Event[]
+  complaints     Complaint[]
+  monthlyReports MonthlyReport[]
+  ratings        Rating[]
+  workSessions   WorkSession[]
+  locationLogs   LocationLog[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  @@unique([districtId, name])
+}
+
+model User {
+  id                 String              @id @default(uuid())
+  phone              String              @unique
+  fullName           String
+  role               Role                @default(RESIDENT)
+  mahallaId          String?
+  mahalla            Mahalla?            @relation(fields: [mahallaId], references: [id])
+  staffProfile       StaffProfile?
+  refreshTokens      RefreshToken[]
+  posts              Post[]              @relation("PostCreatedBy")
+  eventsCreated      Event[]             @relation("EventCreatedBy")
+  complaints         Complaint[]
+  eventsResponsible  Event[]             @relation("EventResponsible")
+  complaintResponses ComplaintResponse[] @relation("ComplaintResponder")
+  monthlyReports     MonthlyReport[]     @relation("MonthlyReportSubmittedBy")
+  ratings            Rating[]
+  workSessions       WorkSession[]
+  locationLogs       LocationLog[]
+  mediaFiles         MediaFile[]
+  notifications      Notification[]      @relation("NotificationTarget")
+  auditLogs          AuditLog[]          @relation("AuditActor")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+
+  @@index([mahallaId, role])
+}
+
+model StaffProfile {
+  id            String        @id @default(uuid())
+  userId        String        @unique
+  user          User          @relation(fields: [userId], references: [id])
+  position      StaffPosition
+  twoFaRequired Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model OtpCode {
+  id         String    @id @default(uuid())
+  phone      String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, expiresAt])
+}
+
+model Post {
+  id          String      @id @default(uuid())
+  title       String
+  content     String
+  status      PostStatus  @default(DRAFT)
+  publishDate DateTime?
+  createdById String
+  createdBy   User        @relation("PostCreatedBy", fields: [createdById], references: [id])
+  mahallaId   String
+  mahalla     Mahalla     @relation(fields: [mahallaId], references: [id])
+  mediaFiles  MediaFile[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  @@index([mahallaId, status])
+}
+
+model Event {
+  id                String      @id @default(uuid())
+  title             String
+  scheduledAt       DateTime
+  locationName      String?
+  latitude          Decimal?    @db.Decimal(10, 7)
+  longitude         Decimal?    @db.Decimal(10, 7)
+  responsibleUserId String?
+  responsibleUser   User?       @relation("EventResponsible", fields: [responsibleUserId], references: [id])
+  participantCount  Int         @default(0)
+  status            EventStatus @default(PLANNED)
+  mahallaId         String
+  mahalla           Mahalla     @relation(fields: [mahallaId], references: [id])
+  createdById       String
+  createdBy         User        @relation("EventCreatedBy", fields: [createdById], references: [id])
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  deletedAt         DateTime?
+
+  @@index([mahallaId, status])
+  @@index([scheduledAt])
+}
+
+model WorkSession {
+  id               String            @id @default(uuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id])
+  mahallaId        String
+  mahalla          Mahalla           @relation(fields: [mahallaId], references: [id])
+  status           WorkSessionStatus @default(OPEN)
+  checkInAt        DateTime
+  checkOutAt       DateTime?
+  checkInLatitude  Decimal?          @db.Decimal(10, 7)
+  checkInLongitude Decimal?          @db.Decimal(10, 7)
+  checkOutLatitude Decimal?          @db.Decimal(10, 7)
+  checkOutLongitude Decimal?         @db.Decimal(10, 7)
+  totalWorkMinutes Int?
+  outsideMinutes   Int               @default(0)
+  locationLogs     LocationLog[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([userId, status])
+  @@index([mahallaId, checkInAt])
+}
+
+model LocationLog {
+  id         String      @id @default(uuid())
+  sessionId  String
+  session    WorkSession @relation(fields: [sessionId], references: [id])
+  userId     String
+  user       User        @relation(fields: [userId], references: [id])
+  mahallaId  String
+  mahalla    Mahalla     @relation(fields: [mahallaId], references: [id])
+  latitude   Decimal     @db.Decimal(10, 7)
+  longitude  Decimal     @db.Decimal(10, 7)
+  isOutside  Boolean     @default(false)
+  recordedAt DateTime    @default(now())
+  createdAt  DateTime    @default(now())
+
+  @@index([sessionId, recordedAt])
+  @@index([mahallaId, isOutside, recordedAt])
+}
+
+model Complaint {
+  id             String              @id @default(uuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id])
+  mahallaId      String
+  mahalla        Mahalla             @relation(fields: [mahallaId], references: [id])
+  category       String
+  description    String
+  latitude       Decimal?            @db.Decimal(10, 7)
+  longitude      Decimal?            @db.Decimal(10, 7)
+  status         ComplaintStatus     @default(NEW)
+  responseText   String?
+  respondedAt    DateTime?
+  deadlineAt     DateTime
+  escalationFlag Boolean             @default(false)
+  mediaFiles     MediaFile[]
+  responses      ComplaintResponse[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  deletedAt      DateTime?
+
+  @@index([mahallaId, status])
+  @@index([deadlineAt, escalationFlag])
+  @@index([userId])
+}
+
+model ComplaintResponse {
+  id          String    @id @default(uuid())
+  complaintId String
+  complaint   Complaint @relation(fields: [complaintId], references: [id])
+  responderId String
+  responder   User      @relation("ComplaintResponder", fields: [responderId], references: [id])
+  responseText String
+  respondedAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+
+  @@index([complaintId])
+}
+
+model MonthlyReport {
+  id           String            @id @default(uuid())
+  mahallaId    String
+  mahalla      Mahalla           @relation(fields: [mahallaId], references: [id])
+  month        DateTime
+  status       MonthlyReportStatus @default(DRAFT)
+  summary      String
+  submittedById String
+  submittedBy  User              @relation("MonthlyReportSubmittedBy", fields: [submittedById], references: [id])
+  items        ReportItem[]
+  ratings      Rating[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  deletedAt    DateTime?
+
+  @@unique([mahallaId, month])
+  @@index([month])
+}
+
+model ReportItem {
+  id          String      @id @default(uuid())
+  reportId    String
+  report      MonthlyReport @relation(fields: [reportId], references: [id])
+  workName    String
+  workDate    DateTime
+  resultText  String
+  mediaFiles  MediaFile[]
+  createdAt   DateTime    @default(now())
+
+  @@index([reportId])
+}
+
+model Rating {
+  id          String        @id @default(uuid())
+  reportId    String
+  report      MonthlyReport @relation(fields: [reportId], references: [id])
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  mahallaId   String
+  mahalla     Mahalla       @relation(fields: [mahallaId], references: [id])
+  reportMonth DateTime
+  score       Int
+  verdict     RatingVerdict
+  comment     String?
+  createdAt   DateTime      @default(now())
+
+  @@unique([userId, mahallaId, reportMonth])
+  @@index([reportId])
+  @@index([mahallaId, reportMonth])
+}
+
+model MediaFile {
+  id          String     @id @default(uuid())
+  filename    String
+  mimeType    String
+  sizeBytes   Int
+  checksum    String?
+  content     Bytes
+  uploadedById String
+  uploadedBy  User       @relation(fields: [uploadedById], references: [id])
+  postId      String?
+  post        Post?      @relation(fields: [postId], references: [id])
+  complaintId String?
+  complaint   Complaint? @relation(fields: [complaintId], references: [id])
+  reportItemId String?
+  reportItem  ReportItem? @relation(fields: [reportItemId], references: [id])
+  createdAt   DateTime   @default(now())
+}
+
+model Notification {
+  id           String             @id @default(uuid())
+  type         String
+  title        String
+  message      String
+  targetUserId String
+  targetUser   User               @relation("NotificationTarget", fields: [targetUserId], references: [id])
+  channel      NotificationChannel
+  status       NotificationStatus @default(PENDING)
+  meta         Json?
+  sentAt       DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([targetUserId, status])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  actor     User?    @relation("AuditActor", fields: [actorId], references: [id])
+  action    String
+  entityType String
+  entityId  String?
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}
