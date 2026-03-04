@@ -113,4 +113,3 @@ PoC natijalari taklif qilingan backend arxitektura MVP bosqichi uchun texnik jih
 - Repository: `https://github.com/Lazizdeveloper/Mahalla_yettiligi_backend`
 - Branch: `https://github.com/Lazizdeveloper/Mahalla_yettiligi_backend/tree/feat/backend-v1-bootstrap`
 - PoC submission fayli: `https://github.com/Lazizdeveloper/Mahalla_yettiligi_backend/blob/feat/backend-v1-bootstrap/docs/poc-submission.md`
-- So'nggi commit: `https://github.com/Lazizdeveloper/Mahalla_yettiligi_backend/commit/9fa412c57aec68cf7814e36627add1c50d641444`
