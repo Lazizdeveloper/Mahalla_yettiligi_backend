@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
-const adminPhone = process.env.POSTMAN_ADMIN_PHONE ?? '+998900000001';
+const adminPhone = process.env.POSTMAN_ADMIN_PHONE ?? '+998949395123';
 const command = path.join(
   process.cwd(),
   'node_modules',

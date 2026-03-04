@@ -102,7 +102,7 @@ npm run test:newman
 Optional override:
 
 ```bash
-POSTMAN_ADMIN_PHONE=+998900000001 npm run test:newman
+POSTMAN_ADMIN_PHONE=+998949395123 npm run test:newman
 ```
 
 ## Backup and restore
@@ -153,3 +153,5 @@ GitHub Actions pipeline (`.github/workflows/ci.yml`) runs:
 
 - Release checklist: `docs/release-checklist.md`
 - Restore drill playbook: `docs/restore-drill.md`
+- PoC report: `docs/poc-proof-of-concept-report.md`
+- PoC demo runbook: `docs/poc-demo-runbook.md`

@@ -634,7 +634,7 @@ const environment = {
   name: 'Mahalla Yettiligi Local',
   values: [
     { key: 'baseUrl', value: 'http://localhost:4000', enabled: true },
-    { key: 'adminPhone', value: '+998900000001', enabled: true },
+    { key: 'adminPhone', value: '+998949395123', enabled: true },
     { key: 'otpCode', value: '', enabled: true },
     { key: 'pendingTwoFactorToken', value: '', enabled: true },
     { key: 'twoFactorCode', value: '', enabled: true },
