@@ -58,6 +58,10 @@ export default () => ({
       300,
     ),
     verifyMax: parseIntValue(process.env.OTP_VERIFY_MAX, 10),
+    exposeCodeInResponse: parseBoolean(
+      process.env.OTP_EXPOSE_CODE_IN_RESPONSE,
+      false,
+    ),
   },
   twoFactor: {
     ttlSeconds: parseIntValue(process.env.TWO_FA_TTL_SECONDS, 300),

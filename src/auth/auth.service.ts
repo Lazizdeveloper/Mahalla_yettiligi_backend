@@ -402,10 +402,14 @@ export class AuthService {
       'app.environment',
       'development',
     );
+    const exposeCodeInResponse = this.configService.get<boolean>(
+      'otp.exposeCodeInResponse',
+      environment !== 'production',
+    );
 
     return {
       message: 'If the account exists, an OTP has been sent',
-      otpCode: environment === 'production' ? undefined : otpCode,
+      otpCode: exposeCodeInResponse ? otpCode : undefined,
     };
   }
 

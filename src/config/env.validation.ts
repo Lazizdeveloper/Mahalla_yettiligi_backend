@@ -109,6 +109,10 @@ class EnvironmentVariables {
   OTP_VERIFY_MAX: number = 10;
 
   @IsOptional()
+  @IsIn(['true', 'false', '1', '0', 'yes', 'no', 'on', 'off'])
+  OTP_EXPOSE_CODE_IN_RESPONSE: string = 'false';
+
+  @IsOptional()
   @IsInt()
   @Min(30)
   TWO_FA_TTL_SECONDS: number = 300;
