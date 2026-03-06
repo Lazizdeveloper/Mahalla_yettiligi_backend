@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { LayoutShell } from "@mmbp/ui";
+import { LayoutShell } from "@/lib/layout-shell";
 
 export default function HokimiyatLayout({ children }: { children: ReactNode }) {
   return (
@@ -20,4 +20,3 @@ export default function HokimiyatLayout({ children }: { children: ReactNode }) {
     </LayoutShell>
   );
 }
-

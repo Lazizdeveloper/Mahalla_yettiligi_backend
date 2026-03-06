@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { LayoutShell } from "@mmbp/ui";
+import { LayoutShell } from "@/lib/layout-shell";
 
 export default function MahallaLayout({ children }: { children: ReactNode }) {
   return (
@@ -21,4 +21,3 @@ export default function MahallaLayout({ children }: { children: ReactNode }) {
     </LayoutShell>
   );
 }
-

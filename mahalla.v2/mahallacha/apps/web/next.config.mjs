@@ -1,7 +1,4 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  transpilePackages: ["@mmbp/ui", "@mmbp/shared"]
-};
+const nextConfig = {};
 
 export default nextConfig;
-

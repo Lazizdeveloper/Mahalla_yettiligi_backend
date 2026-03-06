@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { LayoutShell } from "@mmbp/ui";
+import { LayoutShell } from "@/lib/layout-shell";
 import { AnimatedLayout } from "./components/AnimatedLayout";
 
 export default function ResidentLayout({ children }: { children: ReactNode }) {
@@ -52,4 +52,3 @@ export default function ResidentLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
