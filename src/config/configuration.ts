@@ -70,6 +70,10 @@ export default () => ({
       process.env.ENFORCE_TWO_FACTOR_FOR_PRIVILEGED,
       true,
     ),
+    exposeCodeInResponse: parseBoolean(
+      process.env.TWO_FA_EXPOSE_CODE_IN_RESPONSE,
+      false,
+    ),
   },
   security: {
     bcryptSaltRounds: parseIntValue(process.env.BCRYPT_SALT_ROUNDS, 10),

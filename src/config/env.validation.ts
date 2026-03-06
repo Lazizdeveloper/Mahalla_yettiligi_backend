@@ -128,6 +128,10 @@ class EnvironmentVariables {
   ENFORCE_TWO_FACTOR_FOR_PRIVILEGED: string = 'true';
 
   @IsOptional()
+  @IsIn(['true', 'false', '1', '0', 'yes', 'no', 'on', 'off'])
+  TWO_FA_EXPOSE_CODE_IN_RESPONSE: string = 'false';
+
+  @IsOptional()
   @IsInt()
   @Min(4)
   @Max(15)

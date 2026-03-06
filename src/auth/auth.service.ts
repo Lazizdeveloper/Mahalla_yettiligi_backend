@@ -504,12 +504,16 @@ export class AuthService {
       'app.environment',
       'development',
     );
+    const exposeTwoFactorCodeInResponse = this.configService.get<boolean>(
+      'twoFactor.exposeCodeInResponse',
+      environment !== 'production',
+    );
 
     return {
       requiresTwoFactor: true,
       pendingTwoFactorToken,
       expiresInSeconds: ttlSeconds,
-      twoFactorCode: environment === 'production' ? undefined : code,
+      twoFactorCode: exposeTwoFactorCodeInResponse ? code : undefined,
     };
   }
 
