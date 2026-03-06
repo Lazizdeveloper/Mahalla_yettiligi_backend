@@ -31,7 +31,7 @@ export class ComplaintsService {
 
     const mahallaId =
       actor.role === Role.ADMIN || actor.role === Role.SUPER_ADMIN
-        ? dto.mahallaId
+        ? (dto.mahallaId ?? actorRecord?.mahallaId)
         : actorRecord?.mahallaId;
 
     if (!mahallaId) {

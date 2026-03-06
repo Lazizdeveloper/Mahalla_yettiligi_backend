@@ -1,5 +1,6 @@
 import { createHash, randomInt, randomUUID } from 'crypto';
 import {
+  BadRequestException,
   Injectable,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -7,7 +8,7 @@ import {
 import bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '@prisma/client';
+import { Role as PrismaRole, StaffPosition, User } from '@prisma/client';
 import { Role } from '../common/enums/role.enum';
 import { PrismaService } from '../database/prisma.service';
 import { IntegrationsService } from '../integrations/integrations.service';
@@ -15,6 +16,10 @@ import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { AuthSecurityService } from './auth-security.service';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
+import { RegisterAppUserDto } from './dto/register-app-user.dto';
+import { RegisterSuperAdminDto } from './dto/register-super-admin.dto';
+import { RegisterMahallaUserDto } from './dto/register-mahalla-user.dto';
+import { RegisterAholiUserDto } from './dto/register-aholi-user.dto';
 
 interface TwoFactorJwtPayload {
   sub: string;
@@ -23,6 +28,8 @@ interface TwoFactorJwtPayload {
   challengeId: string;
   type: 'two_factor';
 }
+
+type AuthFlow = 'super_admin' | 'mahalla' | 'resident' | 'app';
 
 @Injectable()
 export class AuthService {
@@ -34,57 +41,96 @@ export class AuthService {
     private readonly authSecurityService: AuthSecurityService,
   ) {}
 
+  async registerSuperAdmin(dto: RegisterSuperAdminDto) {
+    return this.registerByRole({
+      phone: dto.phone,
+      fullName: dto.fullName,
+      role: PrismaRole.SUPER_ADMIN,
+      mahallaId: dto.mahallaId,
+    });
+  }
+
+  async registerMahallaUser(dto: RegisterMahallaUserDto) {
+    return this.registerByRole({
+      phone: dto.phone,
+      fullName: dto.fullName,
+      role: PrismaRole.STAFF,
+      mahallaId: dto.mahallaId,
+      staffPosition: dto.staffPosition ?? 'CHAIRPERSON',
+    });
+  }
+
+  async registerAholiUser(dto: RegisterAholiUserDto) {
+    return this.registerByRole({
+      phone: dto.phone,
+      fullName: dto.fullName,
+      role: PrismaRole.RESIDENT,
+      mahallaId: dto.mahallaId,
+    });
+  }
+
+  async registerAppUser(dto: RegisterAppUserDto) {
+    return this.registerAholiUser(dto);
+  }
+
+  async requestSuperAdminOtp(dto: RequestOtpDto) {
+    return this.requestOtpByFlow(dto, 'super_admin');
+  }
+
+  async requestMahallaOtp(dto: RequestOtpDto) {
+    return this.requestOtpByFlow(dto, 'mahalla');
+  }
+
+  async requestAholiOtp(dto: RequestOtpDto) {
+    return this.requestOtpByFlow(dto, 'resident');
+  }
+
+  async requestAppOtp(dto: RequestOtpDto) {
+    return this.requestOtpByFlow(dto, 'app');
+  }
+
   async requestOtp(dto: RequestOtpDto) {
+    return this.requestSuperAdminOtp(dto);
+  }
+
+  async verifySuperAdminOtp(dto: VerifyOtpDto) {
+    return this.verifyOtpByFlow(dto, 'super_admin');
+  }
+
+  async verifyMahallaOtp(dto: VerifyOtpDto) {
+    return this.verifyOtpByFlow(dto, 'mahalla');
+  }
+
+  async verifyAholiOtp(dto: VerifyOtpDto) {
+    return this.verifyOtpByFlow(dto, 'resident');
+  }
+
+  async verifyAppOtp(dto: VerifyOtpDto) {
+    return this.verifyOtpByFlow(dto, 'app');
+  }
+
+  async verifyOtp(dto: VerifyOtpDto) {
+    return this.verifySuperAdminOtp(dto);
+  }
+
+  private async requestOtpByFlow(dto: RequestOtpDto, flow: AuthFlow) {
     this.authSecurityService.assertOtpRequestRate(
       dto.phone,
       this.configService.get<number>('otp.requestMax', 5),
       this.configService.get<number>('otp.requestWindowSeconds', 600),
     );
 
-    const user = await this.prisma.user.findFirst({
-      where: {
-        phone: dto.phone,
-        deletedAt: null,
-      },
-      select: { id: true },
-    });
+    const user = await this.findActiveUserByPhone(dto.phone);
 
-    if (!user) {
-      return { message: 'If the account exists, an OTP has been sent' };
+    if (!user || !this.isUserAllowedForFlow(user.role as Role, flow)) {
+      return this.getOtpRequestResponse();
     }
 
-    const otp = `${randomInt(0, 1_000_000)}`.padStart(6, '0');
-    const ttlSeconds = this.configService.get<number>('otp.ttlSeconds', 300);
-
-    await this.prisma.otpCode.create({
-      data: {
-        phone: dto.phone,
-        codeHash: await this.hashWithBcrypt(otp),
-        expiresAt: new Date(Date.now() + ttlSeconds * 1000),
-      },
-    });
-
-    const environment = this.configService.get<string>(
-      'app.environment',
-      'development',
-    );
-
-    try {
-      await this.integrationsService.sendSms({
-        phone: dto.phone,
-        message: `Your OTP code is: ${otp}. It expires in ${Math.floor(ttlSeconds / 60)} minutes.`,
-      });
-    } catch {
-      throw new ServiceUnavailableException('Failed to send OTP SMS');
-    }
-
-    return {
-      message: 'If the account exists, an OTP has been sent',
-      otpCode: environment === 'production' ? undefined : otp,
-    };
+    const otp = await this.createAndSendOtp(dto.phone);
+    return this.getOtpRequestResponse(otp);
   }
 
-  async verifyOtp(dto: VerifyOtpDto) {
+  private async verifyOtpByFlow(dto: VerifyOtpDto, flow: AuthFlow) {
     this.authSecurityService.assertOtpVerifyRate(
       dto.phone,
       this.configService.get<number>('otp.verifyMax', 10),
@@ -134,6 +180,10 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('User is not found');
+    }
+
+    if (!this.isUserAllowedForFlow(user.role as Role, flow)) {
+      throw new UnauthorizedException(this.getFlowDenyMessage(flow));
     }
 
     await this.prisma.otpCode.update({
@@ -228,6 +278,159 @@ export class AuthService {
     }
 
     return { success: true };
+  }
+
+  private async registerByRole(input: {
+    phone: string;
+    fullName: string;
+    role: PrismaRole;
+    mahallaId?: string;
+    staffPosition?: StaffPosition;
+  }) {
+    const requiresMahalla =
+      input.role === PrismaRole.RESIDENT || input.role === PrismaRole.STAFF;
+
+    if (requiresMahalla && !input.mahallaId) {
+      throw new BadRequestException(
+        'mahallaId is required for RESIDENT and STAFF',
+      );
+    }
+
+    if (input.mahallaId) {
+      const mahalla = await this.prisma.mahalla.findFirst({
+        where: {
+          id: input.mahallaId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      if (!mahalla) {
+        throw new BadRequestException('Mahalla is not found');
+      }
+    }
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { phone: input.phone },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException('Phone number already exists');
+    }
+
+    const user = await this.prisma.user.create({
+      data: {
+        phone: input.phone,
+        fullName: input.fullName,
+        role: input.role,
+        mahallaId: input.mahallaId,
+      },
+      select: {
+        id: true,
+        phone: true,
+        fullName: true,
+        role: true,
+        mahallaId: true,
+      },
+    });
+
+    if (input.role === PrismaRole.STAFF) {
+      await this.prisma.staffProfile.create({
+        data: {
+          userId: user.id,
+          position: input.staffPosition ?? 'CHAIRPERSON',
+          twoFaRequired: true,
+        },
+      });
+    }
+
+    return {
+      message: 'Registration successful. Use login to continue.',
+      user,
+    };
+  }
+
+  private async findActiveUserByPhone(phone: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        phone,
+        deletedAt: null,
+      },
+    });
+  }
+
+  private isUserAllowedForFlow(role: Role, flow: AuthFlow) {
+    if (role === Role.SUPER_ADMIN) {
+      return true;
+    }
+
+    switch (flow) {
+      case 'super_admin':
+        return false;
+      case 'mahalla':
+        return role === Role.ADMIN || role === Role.STAFF;
+      case 'resident':
+        return role === Role.RESIDENT;
+      case 'app':
+        return role === Role.ADMIN || role === Role.STAFF || role === Role.RESIDENT;
+      default:
+        return false;
+    }
+  }
+
+  private getFlowDenyMessage(flow: AuthFlow) {
+    switch (flow) {
+      case 'super_admin':
+        return 'Only SUPER_ADMIN can use this login endpoint';
+      case 'mahalla':
+        return 'Only STAFF or ADMIN can use Mahalla login endpoint';
+      case 'resident':
+        return 'Only RESIDENT can use Aholi login endpoint';
+      case 'app':
+      default:
+        return 'This account cannot use this login endpoint';
+    }
+  }
+
+  private getOtpRequestResponse(otpCode?: string) {
+    if (!otpCode) {
+      return { message: 'If the account exists, an OTP has been sent' };
+    }
+
+    const environment = this.configService.get<string>(
+      'app.environment',
+      'development',
+    );
+
+    return {
+      message: 'If the account exists, an OTP has been sent',
+      otpCode: environment === 'production' ? undefined : otpCode,
+    };
+  }
+
+  private async createAndSendOtp(phone: string) {
+    const otp = `${randomInt(0, 1_000_000)}`.padStart(6, '0');
+    const ttlSeconds = this.configService.get<number>('otp.ttlSeconds', 300);
+
+    await this.prisma.otpCode.create({
+      data: {
+        phone,
+        codeHash: await this.hashWithBcrypt(otp),
+        expiresAt: new Date(Date.now() + ttlSeconds * 1000),
+      },
+    });
+
+    try {
+      await this.integrationsService.sendSms({
+        phone,
+        message: `Your OTP code is: ${otp}. It expires in ${Math.floor(ttlSeconds / 60)} minutes.`,
+      });
+    } catch {
+      throw new ServiceUnavailableException('Failed to send OTP SMS');
+    }
+
+    return otp;
   }
 
   private async shouldRequireTwoFactor(user: User) {

@@ -50,7 +50,12 @@ Swagger: `http://localhost:4000/docs`
 
 ## API modules
 
-- Auth (`/auth/otp/request`, `/auth/otp/verify`, `/auth/2fa/verify`, `/auth/refresh`, `/auth/logout`)
+- Auth
+  - Super admin panel: `/auth/super-admin/register`, `/auth/super-admin/login/otp/request`, `/auth/super-admin/login/otp/verify`
+  - Mahalla panel: `/auth/mahalla/register`, `/auth/mahalla/login/otp/request`, `/auth/mahalla/login/otp/verify`
+  - Aholi panel: `/auth/aholi/register`, `/auth/aholi/login/otp/request`, `/auth/aholi/login/otp/verify`
+  - Legacy aliases: `/auth/otp/request`, `/auth/otp/verify`, `/auth/app/register`, `/auth/app/login/otp/request`, `/auth/app/login/otp/verify`
+  - Token lifecycle: `/auth/refresh`, `/auth/logout`
 - Users
 - Mahallas
 - Posts

@@ -1,6 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  Min,
+} from 'class-validator';
 
 export class ListReportsDto {
   @ApiPropertyOptional()
@@ -11,6 +18,9 @@ export class ListReportsDto {
   @ApiPropertyOptional({ example: '2026-02' })
   @IsOptional()
   @IsString()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, {
+    message: 'month must be in YYYY-MM format',
+  })
   month?: string;
 
   @ApiPropertyOptional({ default: 1 })

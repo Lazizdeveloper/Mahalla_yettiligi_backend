@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
@@ -7,6 +7,10 @@ describe('AuthService', () => {
     user: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+    mahalla: {
+      findFirst: jest.fn(),
     },
     otpCode: {
       findFirst: jest.fn(),
@@ -20,6 +24,7 @@ describe('AuthService', () => {
     },
     staffProfile: {
       findUnique: jest.fn(),
+      create: jest.fn(),
     },
   };
 
@@ -108,7 +113,10 @@ describe('AuthService', () => {
   });
 
   it('creates OTP and sends SMS for existing account', async () => {
-    prismaMock.user.findFirst.mockResolvedValue({ id: 'user-1' });
+    prismaMock.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      role: 'SUPER_ADMIN',
+    });
     prismaMock.otpCode.create.mockResolvedValue({ id: 'otp-1' });
 
     const result = await service.requestOtp({ phone: '+998900000001' });
@@ -117,6 +125,119 @@ describe('AuthService', () => {
     expect(result.otpCode).toHaveLength(6);
     expect(prismaMock.otpCode.create).toHaveBeenCalledTimes(1);
     expect(integrationsServiceMock.sendSms).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send super-admin OTP for non-super-admin account', async () => {
+    prismaMock.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      role: 'ADMIN',
+    });
+
+    const result = await service.requestOtp({ phone: '+998900000001' });
+
+    expect(result).toEqual({
+      message: 'If the account exists, an OTP has been sent',
+    });
+    expect(prismaMock.otpCode.create).not.toHaveBeenCalled();
+  });
+
+  it('registers resident user for app flow', async () => {
+    prismaMock.mahalla.findFirst.mockResolvedValue({ id: 'mahalla-1' });
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create.mockResolvedValue({
+      id: 'user-1',
+      phone: '+998900000001',
+      fullName: 'Resident',
+      role: 'RESIDENT',
+      mahallaId: 'mahalla-1',
+    });
+
+    const result = await service.registerAppUser({
+      phone: '+998900000001',
+      fullName: 'Resident',
+      mahallaId: 'mahalla-1',
+    });
+
+    expect(result.message).toBe('Registration successful. Use login to continue.');
+    expect(result.user.role).toBe('RESIDENT');
+    expect(prismaMock.user.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers mahalla panel user as staff', async () => {
+    prismaMock.mahalla.findFirst.mockResolvedValue({ id: 'mahalla-1' });
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.user.create.mockResolvedValue({
+      id: 'staff-1',
+      phone: '+998900000010',
+      fullName: 'Staff User',
+      role: 'STAFF',
+      mahallaId: 'mahalla-1',
+    });
+    prismaMock.staffProfile.create.mockResolvedValue({});
+
+    const result = await service.registerMahallaUser({
+      phone: '+998900000010',
+      fullName: 'Staff User',
+      mahallaId: 'mahalla-1',
+    });
+
+    expect(result.user.role).toBe('STAFF');
+    expect(prismaMock.staffProfile.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects app registration when phone already exists', async () => {
+    prismaMock.mahalla.findFirst.mockResolvedValue({ id: 'mahalla-1' });
+    prismaMock.user.findUnique.mockResolvedValue({ id: 'existing-user' });
+
+    await expect(
+      service.registerAppUser({
+        phone: '+998900000001',
+        fullName: 'Resident',
+        mahallaId: 'mahalla-1',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('sends app OTP for super-admin account', async () => {
+    prismaMock.user.findFirst.mockResolvedValue({
+      id: 'super-admin-1',
+      role: 'SUPER_ADMIN',
+    });
+    prismaMock.otpCode.create.mockResolvedValue({ id: 'otp-1' });
+
+    const result = await service.requestAppOtp({ phone: '+998900000001' });
+
+    expect(result.message).toBe('If the account exists, an OTP has been sent');
+    expect(result.otpCode).toHaveLength(6);
+    expect(prismaMock.otpCode.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send mahalla OTP for resident account', async () => {
+    prismaMock.user.findFirst.mockResolvedValue({
+      id: 'resident-1',
+      role: 'RESIDENT',
+    });
+
+    const result = await service.requestMahallaOtp({ phone: '+998900000001' });
+
+    expect(result).toEqual({
+      message: 'If the account exists, an OTP has been sent',
+    });
+    expect(prismaMock.otpCode.create).not.toHaveBeenCalled();
+  });
+
+  it('does not send aholi OTP for staff account', async () => {
+    prismaMock.user.findFirst.mockResolvedValue({
+      id: 'staff-1',
+      role: 'STAFF',
+    });
+
+    const result = await service.requestAholiOtp({ phone: '+998900000001' });
+
+    expect(result).toEqual({
+      message: 'If the account exists, an OTP has been sent',
+    });
+    expect(prismaMock.otpCode.create).not.toHaveBeenCalled();
   });
 
   it('returns 2FA challenge for privileged roles', async () => {
@@ -148,6 +269,34 @@ describe('AuthService', () => {
     expect(
       authSecurityServiceMock.storeTwoFactorChallenge,
     ).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows app OTP verification for super-admin account', async () => {
+    prismaMock.otpCode.findFirst.mockResolvedValue({
+      id: 'otp-1',
+      codeHash: await bcrypt.hash('123456', 4),
+      attempts: 0,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    prismaMock.user.findFirst.mockResolvedValue({
+      id: 'admin-1',
+      phone: '+998900000001',
+      role: 'SUPER_ADMIN',
+      fullName: 'Admin',
+      deletedAt: null,
+    });
+    prismaMock.otpCode.update.mockResolvedValue({});
+
+    const response = await service.verifyAppOtp({
+      phone: '+998900000001',
+      code: '123456',
+    });
+
+    expect(response).toMatchObject({
+      requiresTwoFactor: true,
+      pendingTwoFactorToken: 'pending-two-factor-token',
+      expiresInSeconds: 300,
+    });
   });
 
   it('verifies 2FA token and returns auth tokens', async () => {

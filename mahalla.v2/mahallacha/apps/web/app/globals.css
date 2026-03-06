@@ -1,0 +1,192 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Resident (Aholi) panel — zamonaviy animatsiyalar */
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-smooth: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Blob: suzuvchi organik harakat */
+@keyframes float-slow {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+  20% { transform: translate(4%, -6%) scale(1.03); opacity: 0.85; }
+  40% { transform: translate(-3%, 4%) scale(0.98); opacity: 0.82; }
+  60% { transform: translate(5%, 2%) scale(1.02); opacity: 0.88; }
+  80% { transform: translate(-2%, -5%) scale(0.99); opacity: 0.8; }
+}
+
+/* Blob: yumshoq nafas olgandek glow */
+@keyframes mesh-glow {
+  0%, 100% { opacity: 0.5; transform: scale(1) translate(0, 0); }
+  50% { opacity: 0.85; transform: scale(1.12) translate(2%, -2%); }
+}
+
+/* Gradient: silliq oqim */
+@keyframes gradient-mesh-dark {
+  0%   { background-position: 0% 50%; }
+  20%  { background-position: 20% 80%; }
+  40%  { background-position: 60% 20%; }
+  60%  { background-position: 100% 50%; }
+  80%  { background-position: 50% 0%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Aholi panel — harakatlanuvchi gradient fon */
+.resident-mesh-dark {
+  background: 
+    radial-gradient(ellipse 80% 80% at 20% 30%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 60% at 80% 70%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
+    #0a0a0a;
+  background-size: 200% 200%;
+  animation: gradient-mesh-dark 15s ease-in-out infinite;
+}
+
+/* Suzuvchi bloblari — har biri o‘z davri bilan */
+.resident-blob {
+  border-radius: 50%;
+  filter: blur(80px);
+  animation: float-slow 20s var(--ease-in-out-smooth) infinite;
+  pointer-events: none;
+  will-change: transform;
+}
+.resident-blob-glow {
+  animation: float-slow 22s var(--ease-in-out-smooth) infinite, mesh-glow 10s var(--ease-out-expo) infinite;
+  will-change: transform, opacity;
+}
+
+/* Kartalar: kirishda pastdan yuqoriga + fade */
+@keyframes resident-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Aholi panel — Dark glass kartalar */
+.resident-card {
+  @apply rounded-2xl border border-white/10 shadow-xl;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: background 0.4s var(--ease-out-expo), box-shadow 0.4s var(--ease-out-expo), transform 0.4s var(--ease-out-expo), border-color 0.3s ease;
+}
+.resident-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+.resident-card-hover {
+  transition: transform 0.4s var(--ease-spring);
+}
+.resident-card-hover:hover {
+  transform: translateY(-4px) scale(1.008);
+}
+/* Staggered kirish animatsiyasi */
+.resident-card-in {
+  animation: resident-card-in 0.6s var(--ease-out-expo) forwards;
+}
+
+/* Sahifa o‘tish animatsiyasi Framer Motion orqali (PageTransition) */
+.glass-input {
+  @apply rounded-xl border border-white/20 bg-white/10 text-white placeholder-slate-400 transition-all duration-200;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.glass-input:focus {
+  @apply outline-none ring-2 ring-violet-400/50 border-violet-400/50;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Aholi panel — forma: input, select, textarea — matn va fon qora fonda */
+.resident-form input,
+.resident-form select,
+.resident-form textarea {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #f8fafc !important;
+}
+.resident-form input::placeholder,
+.resident-form textarea::placeholder {
+  color: rgba(148, 163, 184, 0.9) !important;
+}
+.resident-form select option {
+  background: #1e293b;
+  color: #f8fafc;
+}
+.resident-form input:focus,
+.resident-form select:focus,
+.resident-form textarea:focus {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(139, 92, 246, 0.6) !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25);
+}
+
+/* Aholi panel — zamonaviy iconlar: idle + hover animatsiya */
+@keyframes resident-icon-idle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.03); opacity: 0.95; }
+}
+
+.resident-icon-box {
+  @apply flex items-center justify-center rounded-xl shrink-0 transition-all duration-300;
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: resident-icon-idle 4s ease-in-out infinite;
+}
+.resident-icon-box svg {
+  @apply transition-transform duration-300;
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.group:hover .resident-icon-box {
+  transform: scale(1.1);
+  animation: none;
+}
+.group:hover .resident-icon-box svg {
+  transform: scale(1.12);
+}
+.resident-chevron {
+  @apply transition-all duration-300;
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.group:hover .resident-chevron {
+  transform: translateX(4px);
+  opacity: 1;
+}
+
+/* Sidebar: aktiv bo‘lim uchun pill indikator (Aholi) */
+[data-resident-nav] a.relative {
+  position: relative;
+}
+[data-resident-nav] a.relative::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 3px;
+  height: 60%;
+  border-radius: 0 2px 2px 0;
+  background: white;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+[data-resident-nav] a[data-nav-active]::before {
+  transform: translateY(-50%) scaleY(1);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900;
+  font-family: var(--font-jakarta), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+

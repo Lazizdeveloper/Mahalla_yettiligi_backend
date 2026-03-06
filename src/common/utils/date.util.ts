@@ -4,10 +4,13 @@ export function getDeadlineAfterHours(hours: number): Date {
 }
 
 export function parseReportMonth(value: string): Date {
-  const normalized = `${value}-01T00:00:00.000Z`;
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) {
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value.trim());
+  if (!match) {
     throw new Error('Month must be in YYYY-MM format');
   }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const parsed = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
   return parsed;
 }

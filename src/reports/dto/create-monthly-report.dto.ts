@@ -9,6 +9,7 @@ import {
   IsString,
   IsUUID,
   Length,
+  Matches,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -45,6 +46,9 @@ export class CreateMonthlyReportDto {
   @ApiProperty({ example: '2026-02' })
   @IsString()
   @Length(7, 7)
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, {
+    message: 'month must be in YYYY-MM format',
+  })
   month!: string;
 
   @ApiProperty()

@@ -1,0 +1,17 @@
+{
+  "name": "mmbp-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev-panels.mjs",
+    "dev:panels": "node scripts/dev-panels.mjs",
+    "dev:web": "cd apps/web && npm run dev",
+    "dev:super-admin": "cd apps/super-admin-panel && npm run dev",
+    "dev:mahalla": "cd apps/mahalla-panel && npm run dev",
+    "dev:resident": "cd apps/resident-panel && npm run dev",
+    "dev:hokimiyat": "cd apps/hokimiyat-panel && npm run dev"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.2"
+  }
+}

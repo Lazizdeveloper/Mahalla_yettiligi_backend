@@ -91,10 +91,20 @@ async function bootstrap() {
   await app.listen(port);
 
   const logger = new Logger('Bootstrap');
+  const baseUrl = `http://${host}:${port}`;
   logger.log(`${appName} is running`);
-  logger.log(`API Base URL: http://${host}:${port}/api/v1`);
-  logger.log(`Swagger URL:  http://${host}:${port}/docs`);
-  logger.log(`Health URL:   http://${host}:${port}/api/v1/health`);
-  logger.log(`Readiness URL: http://${host}:${port}/api/v1/health/readiness`);
+  logger.log(`API Base URL: ${baseUrl}/api/v1`);
+  logger.log(`Swagger URL:  ${baseUrl}/docs`);
+  logger.log(`Health URL:   ${baseUrl}/api/v1/health`);
+  logger.log(`Readiness URL: ${baseUrl}/api/v1/health/readiness`);
+  logger.log(
+    `Super Admin Login URL: ${baseUrl}/api/v1/auth/super-admin/login/otp/request`,
+  );
+  logger.log(
+    `Mahalla Panel Login URL: ${baseUrl}/api/v1/auth/mahalla/login/otp/request`,
+  );
+  logger.log(
+    `Aholi Panel Login URL: ${baseUrl}/api/v1/auth/aholi/login/otp/request`,
+  );
 }
 void bootstrap();
