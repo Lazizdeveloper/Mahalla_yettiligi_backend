@@ -76,6 +76,21 @@ export default function ResidentComplaintsPage() {
     }
   };
 
+  const formatStatus = (status: ApiComplaint["status"]) => {
+    switch (status) {
+      case "NEW":
+        return "Yangi";
+      case "IN_PROGRESS":
+        return "Jarayonda";
+      case "ANSWERED":
+        return "Yopilgan";
+      case "REJECTED":
+        return "Rad etilgan";
+      default:
+        return status;
+    }
+  };
+
   return (
     <main className="relative min-h-screen w-full max-w-full p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-5 md:space-y-6 pb-24 sm:pb-6 box-border text-white">
       <header className="space-y-1">
@@ -172,18 +187,25 @@ export default function ResidentComplaintsPage() {
                 <li key={c.id} className="px-4 py-3 hover:bg-white/5 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <div>
+                      <p className="text-[11px] text-slate-500">
+                        ID: <span className="font-mono text-slate-300">{c.id.slice(0, 8)}</span> |{" "}
+                        {new Date(c.createdAt).toLocaleString()}
+                      </p>
                       <p className="font-medium text-white">{c.category}</p>
                       <p className="text-slate-400 text-xs mt-0.5 line-clamp-2">{c.description}</p>
+                      {c.responseText && (
+                        <p className="text-emerald-300 text-[11px] mt-1 line-clamp-2">
+                          Javob: {c.responseText}
+                        </p>
+                      )}
                     </div>
                     <span className="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-slate-300">
-                      {c.status}
+                      {formatStatus(c.status)}
                     </span>
                   </div>
-                  {imagePreview && (
-                    <div className="mt-2 flex gap-2">
-                      <img src={imagePreview} alt="Murojaat rasmi" className="h-14 w-20 sm:h-16 rounded-md object-cover border border-white/20 shrink-0" />
-                    </div>
-                  )}
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Oxirgi yangilanish: {new Date(c.updatedAt).toLocaleString()}
+                  </p>
                 </li>
               ))}
             </ul>

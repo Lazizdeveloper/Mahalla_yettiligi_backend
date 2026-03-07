@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -140,41 +141,75 @@ export class ComplaintsService {
   async updateStatus(
     id: string,
     dto: UpdateComplaintStatusDto,
-    actorId: string,
+    actor: AuthenticatedUser,
   ) {
     const complaint = await this.prisma.complaint.findUnique({
       where: { id },
-      select: { id: true, deletedAt: true },
+      select: {
+        id: true,
+        deletedAt: true,
+        mahallaId: true,
+        userId: true,
+        status: true,
+      },
     });
 
     if (!complaint || complaint.deletedAt) {
       throw new NotFoundException('Complaint is not found');
     }
+
+    await this.assertStaffCanManageComplaint(complaint.mahallaId, actor);
 
     const updated = await this.prisma.complaint.update({
       where: { id },
       data: { status: dto.status },
     });
 
+    if (complaint.userId !== actor.userId) {
+      await this.notificationsService.notify({
+        type: 'COMPLAINT_STATUS_UPDATED',
+        title: 'Complaint status updated',
+        message: `Your complaint ${id.slice(0, 8)} status changed from ${complaint.status} to ${dto.status}`,
+        targetUserId: complaint.userId,
+        channel: NotificationChannel.IN_APP,
+        meta: {
+          complaintId: id,
+          previousStatus: complaint.status,
+          status: dto.status,
+        },
+      });
+    }
+
     await this.auditService.log({
-      actorId,
+      actorId: actor.userId,
       action: 'COMPLAINT_STATUS_UPDATE',
       entityType: 'Complaint',
       entityId: id,
-      payload: { status: dto.status },
+      payload: {
+        previousStatus: complaint.status,
+        status: dto.status,
+      },
     });
 
     return updated;
   }
 
-  async respond(id: string, dto: RespondComplaintDto, actorId: string) {
+  async respond(id: string, dto: RespondComplaintDto, actor: AuthenticatedUser) {
     const complaint = await this.prisma.complaint.findUnique({
       where: { id },
+      select: {
+        id: true,
+        deletedAt: true,
+        mahallaId: true,
+        userId: true,
+      },
     });
 
     if (!complaint || complaint.deletedAt) {
       throw new NotFoundException('Complaint is not found');
     }
+
+    await this.assertStaffCanManageComplaint(complaint.mahallaId, actor);
 
     const updated = await this.prisma.complaint.update({
       where: { id },
@@ -188,10 +223,31 @@ export class ComplaintsService {
     await this.prisma.complaintResponse.create({
       data: {
         complaintId: id,
-        responderId: actorId,
+        responderId: actor.userId,
         responseText: dto.responseText,
       },
     });
+
+    if (complaint.userId !== actor.userId) {
+      await this.notificationsService.notifyMany([
+        {
+          type: 'COMPLAINT_RESPONDED',
+          title: 'Complaint answered',
+          message: `Your complaint ${id.slice(0, 8)} was answered`,
+          targetUserId: complaint.userId,
+          channel: NotificationChannel.IN_APP,
+          meta: { complaintId: id },
+        },
+        {
+          type: 'COMPLAINT_RESPONDED',
+          title: 'Complaint answered',
+          message: `Your complaint ${id.slice(0, 8)} was answered`,
+          targetUserId: complaint.userId,
+          channel: NotificationChannel.EMAIL,
+          meta: { complaintId: id },
+        },
+      ]);
+    }
 
     const targetAdmins = await this.prisma.user.findMany({
       where: {
@@ -223,7 +279,7 @@ export class ComplaintsService {
     );
 
     await this.auditService.log({
-      actorId,
+      actorId: actor.userId,
       action: 'COMPLAINT_RESPOND',
       entityType: 'Complaint',
       entityId: id,
@@ -233,5 +289,25 @@ export class ComplaintsService {
     });
 
     return updated;
+  }
+
+  private async assertStaffCanManageComplaint(
+    complaintMahallaId: string,
+    actor: AuthenticatedUser,
+  ) {
+    if (actor.role !== Role.STAFF) {
+      return;
+    }
+
+    const actorRecord = await this.prisma.user.findUnique({
+      where: { id: actor.userId },
+      select: { mahallaId: true },
+    });
+
+    if (!actorRecord?.mahallaId || actorRecord.mahallaId !== complaintMahallaId) {
+      throw new ForbiddenException(
+        'Staff can manage complaints only within their mahalla',
+      );
+    }
   }
 }

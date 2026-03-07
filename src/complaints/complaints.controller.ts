@@ -49,7 +49,7 @@ export class ComplaintsController {
     @Body() dto: UpdateComplaintStatusDto,
     @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.complaintsService.updateStatus(id, dto, actor.userId);
+    return this.complaintsService.updateStatus(id, dto, actor);
   }
 
   @Post(':id/respond')
@@ -59,6 +59,6 @@ export class ComplaintsController {
     @Body() dto: RespondComplaintDto,
     @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.complaintsService.respond(id, dto, actor.userId);
+    return this.complaintsService.respond(id, dto, actor);
   }
 }
