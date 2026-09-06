@@ -1,162 +1,173 @@
-# Mahalla Yettiligi Backend
+<div align="center">
 
-NestJS + Prisma + Neon PostgreSQL backend for Mahalla monitoring platform.
+# 🏛️ Mahalla Yettiligi Backend API
 
-## Stack
+[![CI Pipeline](https://github.com/Lazizdeveloper/Mahalla_yettiligi_backend/actions/workflows/ci.yml/badge.svg)](https://github.com/Lazizdeveloper/Mahalla_yettiligi_backend/actions)
+![NestJS](https://img.shields.io/badge/NestJS-11.x-E0234E?style=flat-square&logo=nestjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-316192?style=flat-square&logo=postgresql&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=flat-square&logo=prisma&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-BullMQ-DC382D?style=flat-square&logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white)
 
-- NestJS 11
-- Prisma ORM
-- PostgreSQL (Neon)
-- Redis + BullMQ (notifications queue)
-- Swagger (`/docs`)
-- Newman (API regression)
-- k6 (performance baseline)
+**Mahalla Yettiligi boshqaruv va monitoring platformasi uchun ishlab chiqilgan kengaytiriluvchan (scalable), xavfsiz va yuqori yuklamalarga chidamli backend tizimi.**
 
-## Quick start
+[Arxitektura](#-tizim-arxitekturasi) • [Asosiy Imkoniyatlar](#-asosiy-imkoniyatlar) • [Tezkor Ishga Tushirish](#-tezkor-ishga-tushirish-quickstart) • [API Hujjatlari](#-api-va-modullar) • [Xavfsizlik](#-xavfsizlik-va-ishonchlilik) • [Testlash](#-testlash-va-sifat-nazorati)
 
-1. Install dependencies:
+</div>
+
+---
+
+## 🏛️ Loyiha Haqida
+
+Ushbu backend tizimi mahalla tizimidagi 7 ta mas'ul xodim ("Mahalla Yettiligi") faoliyatini avtomatlashtirish, aholi murojaatlarini (shikoyat va takliflar) qabul qilish, ularni SLA (xizmat ko'rsatish darajasi) asosida nazorat qilish, xodimlar ishini monitoring qilish va analitik hisobotlarni shakllantirish uchun xizmat qiladi.
+
+---
+
+## 📐 Tizim Arxitekturasi
+
+Tizim modulli (Modular Architecture) va Clean Architecture tamoyillari asosida qurilgan:
+
+```mermaid
+graph TD
+    Client["Mijozlar (Web Admin / Mobil Ilova / Aholi)"] -->|HTTPS / REST API| Gateway["NestJS API Gateway (Helmet, CORS, Validation)"]
+
+    subgraph "Core Backend (NestJS 11)"
+        Gateway --> Auth["Auth & RBAC (JWT + OTP + 2FA)"]
+        Gateway --> Modules["Biznes Modullar (Murojaatlar, Xodimlar, Tadbirlar)"]
+        Modules --> Cache["Redis Cache Layer"]
+        Modules --> Queue["BullMQ (Asinxron Navbat & Bildirishnomalar)"]
+        Modules --> SLA["SLA Worker (Avtomatik Eskalatsiya)"]
+    end
+
+    subgraph "Ma'lumotlar Qatlami"
+        Modules -->|Prisma ORM| DB[("PostgreSQL 16 (Neon)")]
+        Cache --> RedisNode[("Redis Instance")]
+        Queue --> RedisNode
+    end
+
+    subgraph "Tashqi Integratsiyalar"
+        Modules --> SMS["SMS Shlyuz (OTP)"]
+        Modules --> OneID["OneID Integratsiyasi"]
+        Modules --> Geo["Geo API & E-Sign"]
+    end
+```
+
+---
+
+## ✨ Asosiy Imkoniyatlar
+
+- 🔐 **Ko'p bosqichli autentifikatsiya:** Aholi, Mahalla xodimlari va Super Adminlar uchun alohida ro'yxatdan o'tish, SMS-OTP orqali kirish va maxsus rollar uchun majburiy **2FA**.
+- 🛡️ **Role-Based Access Control (RBAC):** Har bir xodim (`YETTI_YOSHLAR`, `YETTI_XOTIN_QIZLAR`, `YETTI_PROFILAKTIKA` va b.) uchun alohida ruxsatnomalar.
+- ⚡ **SLA va Murojaatlar monitoringi:** Murojaat belgilangan vaqt ichida ko'rib chiqilmasa, tizim avtomatik tarzda yuqori turuvchi organga eskalatsiya qiladi (har 5 daqiqada cron-job orqali).
+- ⏱️ **Kesh va Asinxron navbat:** Redis yordamida tez-tez so'raladigan ma'lumotlar keshi va BullMQ orqali og'ir fon vazifalarini kechiktirmasdan bajarish.
+- 📍 **Work Tracking (Xodimlar nazorati):** Mas'ul xodimlarning geolokatsiya va check-in / check-out vaqtlarini nazorat qilish.
+- 📊 **Audit Logs & Analytics:** Tizimdagi har bir o'zgarish va qarorlar uchun to'liq audit jurnali.
+
+---
+
+## 🚀 Tezkor Ishga Tushirish (Quickstart)
+
+### Variant 1: Docker Compose bilan (Tavsiya etiladi - 1 daqiqa)
+
+Barcha kerakli qismlar (PostgreSQL, Redis va Backend API) avtomatik ishga tushadi:
 
 ```bash
+# 1. Repozitoriyani klonlash
+git clone https://github.com/Lazizdeveloper/Mahalla_yettiligi_backend.git
+cd Mahalla_yettiligi_backend
+
+# 2. Docker containerlarni ko'tarish
+docker compose up -d
+```
+
+API: `http://localhost:4000/api/v1`  
+Swagger hujjatlari: `http://localhost:4000/docs`
+
+---
+
+### Variant 2: Lokal muhitda ishga tushirish
+
+```bash
+# 1. Bog'liqliklarni o'rnatish
 npm install
-```
 
-2. Configure environment:
-
-```bash
+# 2. Muhit o'zgaruvchilarini nusxalash
 cp .env.example .env
-```
 
-3. Generate Prisma client and run migrations:
-
-```bash
+# 3. Prisma clientni yaratish va migratsiyalarni yurgizish
 npm run prisma:generate
 npm run prisma:migrate:dev
-```
 
-4. Optional seed data:
-
-```bash
+# 4. (Ixtiyoriy) Boshlang'ich test ma'lumotlarini yuklash (Seed)
 npm run prisma:seed
-```
 
-5. Run application:
-
-```bash
+# 5. Dasturni dev rejimda yoqish
 npm run start:dev
 ```
 
-Base API: `http://localhost:4000/api/v1`  
-Swagger: `http://localhost:4000/docs`
+---
 
-## API modules
+## 📖 API va Modullar
 
-- Auth
-  - Super admin panel: `/auth/super-admin/register`, `/auth/super-admin/login/otp/request`, `/auth/super-admin/login/otp/verify`
-  - Mahalla panel: `/auth/mahalla/register`, `/auth/mahalla/login/otp/request`, `/auth/mahalla/login/otp/verify`
-  - Aholi panel: `/auth/aholi/register`, `/auth/aholi/login/otp/request`, `/auth/aholi/login/otp/verify`
-  - Legacy aliases: `/auth/otp/request`, `/auth/otp/verify`, `/auth/app/register`, `/auth/app/login/otp/request`, `/auth/app/login/otp/verify`
-  - Token lifecycle: `/auth/refresh`, `/auth/logout`
-- Users
-- Mahallas
-- Posts
-- Media (DB blob, 10MB/file)
-- Complaints + SLA escalation (every 5 minutes)
-- Events calendar
-- Work tracking (check-in/check-out/location logs)
-- Monthly Reports
-- Ratings
-- Dashboard analytics
-- Audit logs
-- Notifications queue
-- Integration providers (SMS real/mock, OneID/Geo/E-sign/ERP provider flags)
+Tizimda barcha API endpointlar to'liq **Swagger UI** bilan hujjatlashtirilgan:
 
-## Security and reliability
+* **Swagger UI:** `http://localhost:4000/docs`
+* **Salomatlik tekshiruvi (Health):** `GET /api/v1/health/readiness` (DB, Redis, Worker holati)
 
-- JWT access/refresh with refresh-token rotation and revocation.
-- OTP request/verify rate limiting.
-- Mandatory 2FA flow for privileged roles (`STAFF`, `ADMIN`, `SUPER_ADMIN`).
-- Configurable CORS allowlist (`CORS_ORIGINS`).
-- Request body limit (`BODY_LIMIT`).
-- Security headers via `helmet`.
-- Standardized error contract (`code`, `message`, `details`, `path`, `timestamp`, `requestId`).
-- Structured request logs with request IDs.
-- Readiness endpoint: `/api/v1/health/readiness` (DB, Redis, SLA worker checks).
+| Modul | Asosiy yo'nalishlar (Endpoints) | Tavsif |
+| :--- | :--- | :--- |
+| **Auth** | `/auth/*/login/otp/request`, `/verify`, `/refresh` | SMS-OTP va JWT orqali ko'p darajali autentifikatsiya |
+| **Complaints** | `/complaints`, `/complaints/:id/status` | Murojaatlarni qabul qilish va SLA bo'yicha yuritish |
+| **Work Tracking**| `/work-tracking/check-in`, `/check-out` | Xodimlarning ish vaqti va lokatsiyasini qayd etish |
+| **Dashboard** | `/dashboard/analytics`, `/dashboard/stats` | Hudud bo'yicha jonli statistika va metrikalar |
+| **Audit Logs** | `/audit` | Tizim amallari tarixi va xavfsizlik nazorati |
+| **Reports** | `/reports/monthly` | Oylik va choraklik hisobotlarni generatsiya qilish |
 
-## Tests
+---
+
+## 🔒 Xavfsizlik va Ishonchlilik
+
+- **JWT Token Lifecycle:** Token rotation va qora ro'yxat (revocation) orqali seanslarni xavfsiz boshqarish.
+- **Brute-force himoyasi:** OTP so'rash va tekshirishda tezlikni cheklovchi (Rate Limiting) mexanizm.
+- **HTTP Himoyasi:** `helmet` yordamida xavfsizlik sarlavhalari (security headers) va qat'iy CORS filtri.
+- **Yagona xatoliklar standarti:** Barcha xatolar unikal `requestId` va xavfsiz JSON tuzilmasida qaytadi.
+
+---
+
+## 🧪 Testlash va Sifat Nazorati
+
+Loyihada kod sifati qat'iy avtomatlashtirilgan testlar orqali tekshiriladi:
 
 ```bash
-npm run test
+# Unit testlar va qamrov (Coverage)
+npm run test:cov
+
+# End-to-End (E2E) testlar
 npm run test:e2e
-npm run test:cov -- --runInBand
-```
 
-## API regression (Postman/Newman)
-
-Generate assets:
-
-```bash
-npm run postman:generate
-```
-
-Run full regression:
-
-```bash
+# Postman / Newman to'liq integratsion testlar
 npm run test:newman
-```
 
-Optional override:
-
-```bash
-POSTMAN_ADMIN_PHONE=+998949395123 npm run test:newman
-```
-
-## Backup and restore
-
-Use the helper script for manual SQL backups:
-
-```powershell
-.\scripts\backup-neon.ps1 -DatabaseUrl $env:DATABASE_URL
-```
-
-Daily backup with retention:
-
-```powershell
-.\scripts\backup-neon-rotation.ps1 -DatabaseUrl $env:DATABASE_URL -OutputDirectory .\backups -RetentionDays 30
-```
-
-Register scheduled daily backup task (Windows):
-
-```powershell
-.\scripts\register-backup-task.ps1 -DatabaseUrl $env:DATABASE_URL -OutputDirectory .\backups -Schedule "02:30"
-```
-
-Restore from backup:
-
-```powershell
-.\scripts\restore-neon.ps1 -DatabaseUrl $env:DATABASE_URL -BackupFile .\backups\mahalla-backup-YYYYMMDD-HHmmss.sql -Force
-```
-
-## Performance baseline
-
-Run k6 baseline:
-
-```bash
+# k6 orqali yuqori yuklama (Stress / Performance) testi
 npm run perf:k6:baseline
 ```
 
-## CI quality gate
+---
 
-GitHub Actions pipeline (`.github/workflows/ci.yml`) runs:
+## 🔄 CI/CD Avtomatlashtirish
 
-- `lint`
-- `test:cov`
-- `test:e2e`
-- Prisma migrate + seed
-- Newman regression suite
+Loyihada **GitHub Actions** CI pipeline sozlangan. Har bir `push` va `pull_request`da quyidagi tekshiruvlar avtomat ravishda o'tadi:
+1. Kod uslubi tekshiruvi (`eslint`);
+2. Unit va E2E testlar (Postgres 16 va Redis 7 konteynerlarida);
+3. Prisma migratsiyalari va database seed;
+4. To'liq build va jonli healthcheck testi;
+5. Newman regressiya testlar to'plami.
 
-## Operational docs
+---
 
-- Release checklist: `docs/release-checklist.md`
-- Restore drill playbook: `docs/restore-drill.md`
-- PoC report: `docs/poc-proof-of-concept-report.md`
-- PoC demo runbook: `docs/poc-demo-runbook.md`
+## 👨‍💻 Muallif
+
+* **Laziz Shakarov** ([@Lazizdeveloper](https://github.com/Lazizdeveloper))  
+* Telegram: [@Laziz_Shakarov](https://t.me/Laziz_Shakarov)  
+* Email: [shakarovlaziz243@gmail.com](mailto:shakarovlaziz243@gmail.com)

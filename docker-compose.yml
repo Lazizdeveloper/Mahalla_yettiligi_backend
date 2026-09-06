@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mahalla-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: mahalla
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: mahalla-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mahalla-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    environment:
+      APP_HOST: 0.0.0.0
+      PORT: 4000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgrespassword@postgres:5432/mahalla?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_ACCESS_SECRET: dev_access_secret_change_in_production_key_123
+      JWT_REFRESH_SECRET: dev_refresh_secret_change_in_production_key_456
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      TIMEZONE: Asia/Tashkent
+      APP_NAME: "Mahalla Yettiligi API"
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:4000"
+      BODY_LIMIT: 10mb
+      ENABLE_SECURITY_HEADERS: "true"
+      SMS_PROVIDER: mock
+      ONEID_PROVIDER: mock-oneid
+      GEO_PROVIDER: mock-geo-api
+      ESIGN_PROVIDER: mock-e-sign
+      ERP_PROVIDER: mock-erp
+
+volumes:
+  postgres_data:
+  redis_data:
