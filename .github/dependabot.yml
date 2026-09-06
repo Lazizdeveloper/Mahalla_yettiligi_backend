@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # npm paketlarini har hafta avtomatik tekshirish va yangilash
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # GitHub Actions versiyalarini har oy tekshirish
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
